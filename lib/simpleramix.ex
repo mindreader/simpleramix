@@ -275,6 +275,14 @@ defmodule Simpleramix do
     end
   end
 
+  def top_n do
+    %Simpleramix.Query{query_type: "topN", context: Simpleramix.Query.default_context()}
+  end
+
+  def group_by do
+    %Simpleramix.Query{query_type: "groupBy", context: Simpleramix.Query.default_context()}
+  end
+
   def timeseries do
     %Simpleramix.Query{query_type: "timeseries", context: Simpleramix.Query.default_context()}
   end
