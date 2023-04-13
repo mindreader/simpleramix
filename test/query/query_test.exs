@@ -40,7 +40,8 @@ defmodule QueryTest do
 
     assert query.subtotals_spec == [[:d1], [:d2, :d3]]
 
-    field_name = "asdf"
+    field_name = "field_name"
+    field_value = "field_value"
 
     # ob = %{foo: :bar}
 
@@ -52,8 +53,13 @@ defmodule QueryTest do
       |> Simpleramix.add_interval(DateTime.utc_now(), DateTime.utc_now())
       |> Simpleramix.add_aggregation(
         :field_total,
-        longSum(^field_name) when dimensions.foo == ^field_name
+        longSum(^field_name) when dimensions.foo == ^field_value
       )
+      |> Simpleramix.add_aggregation(
+        :field_total_2,
+        longSum(:__count) when dimensions.foo == ^field_value
+      )
+
       # TODO would be nice to suport eg. this
       # |> Simpleramix.add_aggregation(
       #   :field_total,
@@ -70,7 +76,7 @@ defmodule QueryTest do
       |> Simpleramix.set_to_include(:all)
       |> Simpleramix.set_subtotals_spec([[:a1], [:a2]])
 
-    assert Enum.count(query.aggregations) == 4
+    assert Enum.count(query.aggregations) == 5
     assert Enum.count(query.post_aggregations) == 2
     assert Enum.count(query.virtual_columns) == 2
     assert Enum.count(query.intervals) == 3
