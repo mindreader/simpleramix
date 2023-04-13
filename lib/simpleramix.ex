@@ -213,7 +213,7 @@ defmodule Simpleramix do
         # The CA certificate is provided as a PEM-encoded string.
         # Need to convert it to DER.
         pem_entries = :public_key.pem_decode(cacert)
-        cacerts = for {:Certificate, cert, :not_encrypted} <- pem_entries, do: cert
+        cacerts = for {"Certificate", cert, :not_encrypted} <- pem_entries, do: cert
         [cacerts: cacerts]
 
       true ->
