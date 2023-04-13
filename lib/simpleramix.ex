@@ -287,6 +287,7 @@ defmodule Simpleramix do
     quote do
       # import Simpleramix.Query, only: [from: 2, timeseries: 2, groupBy: 2, topN: 2]
       import Simpleramix.Query, only: [from: 2, timeseries: 2]
+      require Simpleramix
     end
   end
 
@@ -326,9 +327,11 @@ defmodule Simpleramix do
     agg = Simpleramix.Query.build_aggregation(name, expr)
 
     quote do
+      query = unquote(query)
+
       %Simpleramix.Query{
-        unquote(query)
-        | aggregations: [unquote(agg) | unquote(query).aggregations || []]
+        query
+        | aggregations: [unquote(agg) | query.aggregations || []]
       }
     end
   end
@@ -337,10 +340,12 @@ defmodule Simpleramix do
     agg = Simpleramix.Query.build_post_aggregation(expr)
 
     quote do
+      query = unquote(query)
+
       %Simpleramix.Query{
-        unquote(query)
+        query
         | post_aggregations: [
-            unquote(agg) |> Map.put(:name, unquote(name)) | unquote(query).post_aggregations
+            unquote(agg) |> Map.put(:name, unquote(name)) | query.post_aggregations
           ]
       }
     end
@@ -357,14 +362,16 @@ defmodule Simpleramix do
     expr = Simpleramix.Query.build_filter(expr)
 
     quote do
-      unquote(query).filter
+      query = unquote(query)
+
+      query.filter
       |> case do
         nil ->
-          %Simpleramix.Query{unquote(query) | filter: unquote(expr)}
+          %Simpleramix.Query{query | filter: unquote(expr)}
 
         %{type: op, fields: fields} when op in [:and, "and"] ->
           %Simpleramix.Query{
-            unquote(query)
+            query
             | filter: %{
                 type: :and,
                 fields: [unquote(expr) | fields]
@@ -373,7 +380,7 @@ defmodule Simpleramix do
 
         existing_filter ->
           %Simpleramix.Query{
-            unquote(query)
+            query
             | filter: %{
                 type: :and,
                 fields: [unquote(expr), existing_filter]
@@ -394,10 +401,12 @@ defmodule Simpleramix do
     expr = Simpleramix.Query.build_virtual_column(name, expr)
 
     quote do
+      query = unquote(query)
+
       %Simpleramix.Query{
-        unquote(query)
+        query
         | virtual_columns: [
-            unquote(expr) |> Map.put(:name, unquote(name)) | unquote(query).virtual_columns || []
+            unquote(expr) |> Map.put(:name, unquote(name)) | query.virtual_columns || []
           ]
       }
     end
