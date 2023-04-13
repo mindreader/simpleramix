@@ -4,7 +4,6 @@ defmodule Simpleramix.Error do
 end
 
 defmodule Simpleramix do
-
   @moduledoc """
   Post a query to Druid Broker or request its status.
 
@@ -128,16 +127,21 @@ defmodule Simpleramix do
   """
   @moduledoc since: "1.0.0"
 
-  @spec post_query(Simpleramix.Query.t() | map(), atom()) :: {:ok, term()} |
-  {:error, HTTPoison.Error.t() | Jason.DecodeError.t() | Simpleramix.Error.t()}
+  @spec post_query(Simpleramix.Query.t() | map(), atom()) ::
+          {:ok, term()}
+          | {:error, HTTPoison.Error.t() | Jason.DecodeError.t() | Simpleramix.Error.t()}
   def post_query(query, profile \\ :default) do
     url_path = "/druid/v2"
-    body = case query do
-             %Simpleramix.Query{} ->
-               Simpleramix.Query.to_json(query)
-             _ ->
-               Jason.encode!(query)
-           end
+
+    body =
+      case query do
+        %Simpleramix.Query{} ->
+          Simpleramix.Query.to_json(query)
+
+        _ ->
+          Jason.encode!(query)
+      end
+
     headers = [{"Content-Type", "application/json"}]
 
     request_and_decode(profile, :post, url_path, body, headers)
@@ -151,8 +155,9 @@ defmodule Simpleramix do
     end
   end
 
-  @spec status(atom) :: {:ok, term()} |
-  {:error, HTTPoison.Error.t() | Jason.DecodeError.t() | Simpleramix.Error.t()}
+  @spec status(atom) ::
+          {:ok, term()}
+          | {:error, HTTPoison.Error.t() | Jason.DecodeError.t() | Simpleramix.Error.t()}
   def status(profile \\ :default) do
     url_path = "/status"
     body = ""
@@ -171,8 +176,11 @@ defmodule Simpleramix do
 
   defp request_and_decode(profile, method, url_path, body, headers) do
     broker_profiles = Application.get_env(:panoramix, :broker_profiles)
-    broker_profile = broker_profiles[profile] ||
-      raise ArgumentError, "no broker profile with name #{profile}"
+
+    broker_profile =
+      broker_profiles[profile] ||
+        raise ArgumentError, "no broker profile with name #{profile}"
+
     url = broker_profile[:base_url] <> url_path
     options = http_options(url, broker_profile)
 
@@ -200,12 +208,14 @@ defmodule Simpleramix do
       cacertfile = broker_profile[:cacertfile] ->
         # The CA certificate is in a file.
         [cacertfile: cacertfile]
+
       cacert = broker_profile[:cacert] ->
         # The CA certificate is provided as a PEM-encoded string.
         # Need to convert it to DER.
         pem_entries = :public_key.pem_decode(cacert)
-        cacerts = for {:"Certificate", cert, :not_encrypted} <- pem_entries, do: cert
+        cacerts = for {:Certificate, cert, :not_encrypted} <- pem_entries, do: cert
         [cacerts: cacerts]
+
       true ->
         # No CA certificate specified.
         []
@@ -227,27 +237,30 @@ defmodule Simpleramix do
     [recv_timeout: request_timeout]
   end
 
-  defp maybe_handle_druid_error(
-    %HTTPoison.Response{status_code: 200, body: body}) do
+  defp maybe_handle_druid_error(%HTTPoison.Response{status_code: 200, body: body}) do
     {:ok, body}
   end
-  defp maybe_handle_druid_error(
-    %HTTPoison.Response{status_code: status_code, body: body}) do
+
+  defp maybe_handle_druid_error(%HTTPoison.Response{status_code: status_code, body: body}) do
     message =
       "Druid error (code #{status_code}): " <>
-      case Jason.decode body do
-        {:ok, %{"error" => _} = decoded} ->
-          # Usually we'll get a JSON object from Druid with "error",
-          # "errorMessage", "errorClass" and "host". Some of them
-          # might be null.
-          Enum.join(
-            for field <- ["error", "errorMessage", "errorClass", "host"],
-            decoded[field] do
-              "#{field}: #{decoded[field]}"
-            end, " ")
-        _ ->
-          "undecodable error: " <> body
-      end
+        case Jason.decode(body) do
+          {:ok, %{"error" => _} = decoded} ->
+            # Usually we'll get a JSON object from Druid with "error",
+            # "errorMessage", "errorClass" and "host". Some of them
+            # might be null.
+            Enum.join(
+              for field <- ["error", "errorMessage", "errorClass", "host"],
+                  decoded[field] do
+                "#{field}: #{decoded[field]}"
+              end,
+              " "
+            )
+
+          _ ->
+            "undecodable error: " <> body
+        end
+
     {:error, %Simpleramix.Error{message: message, code: status_code}}
   end
 
@@ -263,29 +276,31 @@ defmodule Simpleramix do
       "2018-07-20T01:02:03+00:00"
   """
   def format_time!(%DateTime{} = datetime) do
-    Timex.format! datetime, "{ISO:Extended}"
+    Timex.format!(datetime, "{ISO:Extended}")
   end
+
   def format_time!(%Date{} = date) do
-    Timex.format! date, "{ISOdate}"
+    Timex.format!(date, "{ISOdate}")
   end
 
   defmacro __using__(_params) do
     quote do
-      #import Simpleramix.Query, only: [from: 2, timeseries: 2, groupBy: 2, topN: 2]
+      # import Simpleramix.Query, only: [from: 2, timeseries: 2, groupBy: 2, topN: 2]
       import Simpleramix.Query, only: [from: 2, timeseries: 2]
     end
   end
 
   def datasource(%Simpleramix.Query{} = query, table) do
     %Simpleramix.Query{
-      query |
-      data_source: Simpleramix.Query.datasource(table)
+      query
+      | data_source: Simpleramix.Query.datasource(table)
     }
   end
 
   def put_context(%Simpleramix.Query{} = query, key, value) do
     %Simpleramix.Query{
-      query | context: Map.put(query.context, key, value)
+      query
+      | context: Map.put(query.context, key, value)
     }
   end
 
@@ -293,7 +308,8 @@ defmodule Simpleramix do
     interval = from <> "/" <> to
 
     %Simpleramix.Query{
-      query | intervals: [ interval | query.intervals || [] ]
+      query
+      | intervals: [interval | query.intervals || []]
     }
   end
 
@@ -301,155 +317,180 @@ defmodule Simpleramix do
     interval = Simpleramix.format_time!(from) <> "/" <> Simpleramix.format_time!(to)
 
     %Simpleramix.Query{
-      query | intervals: [ interval | query.intervals || [] ]
+      query
+      | intervals: [interval | query.intervals || []]
     }
   end
 
   defmacro add_aggregation(query, name, expr) do
     agg = Simpleramix.Query.build_aggregation(name, expr)
+
     quote do
       %Simpleramix.Query{
-        unquote(query) |
-        aggregations: [ unquote(agg) | unquote(query).aggregations || []]
+        unquote(query)
+        | aggregations: [unquote(agg) | unquote(query).aggregations || []]
       }
     end
   end
 
   defmacro add_post_aggregation(query, name, expr) do
     agg = Simpleramix.Query.build_post_aggregation(expr)
+
     quote do
       %Simpleramix.Query{
-        unquote(query) |
-        post_aggregations: [ unquote(agg) |> Map.put(:name, unquote(name)) | unquote(query).post_aggregations ]
+        unquote(query)
+        | post_aggregations: [
+            unquote(agg) |> Map.put(:name, unquote(name)) | unquote(query).post_aggregations
+          ]
       }
     end
   end
 
   def add_dimension(%Simpleramix.Query{} = query, dimension) do
     %Simpleramix.Query{
-      query |
-      dimensions: [dimension | query.dimensions || []]
+      query
+      | dimensions: [dimension | query.dimensions || []]
     }
   end
 
   defmacro add_filter(query, expr) do
     expr = Simpleramix.Query.build_filter(expr)
+
     quote do
-      unquote(query).filter |> case do
-        nil -> %Simpleramix.Query{unquote(query) | filter: unquote(expr)}
+      unquote(query).filter
+      |> case do
+        nil ->
+          %Simpleramix.Query{unquote(query) | filter: unquote(expr)}
+
         %{type: op, fields: fields} when op in [:and, "and"] ->
           %Simpleramix.Query{
-            unquote(query) |
-            filter: %{
-              type: :and,
-              fields: [unquote(expr) | fields]
-            }
-          }
-        existing_filter ->
-          %Simpleramix.Query{
-            unquote(query) |
-            filter: %{
-              type: :and,
-              fields: [unquote(expr), existing_filter]
-            }
+            unquote(query)
+            | filter: %{
+                type: :and,
+                fields: [unquote(expr) | fields]
+              }
           }
 
+        existing_filter ->
+          %Simpleramix.Query{
+            unquote(query)
+            | filter: %{
+                type: :and,
+                fields: [unquote(expr), existing_filter]
+              }
+          }
       end
     end
   end
 
   defmacro add_virtual_column(query, name, expr) do
     expr = Simpleramix.Query.build_virtual_column(name, expr)
+
     quote do
       %Simpleramix.Query{
-        unquote(query) |
-        virtual_columns: [unquote(expr) |> Map.put(:name, unquote(name)) | unquote(query).virtual_columns || []]
+        unquote(query)
+        | virtual_columns: [
+            unquote(expr) |> Map.put(:name, unquote(name)) | unquote(query).virtual_columns || []
+          ]
       }
     end
   end
 
   def set_granularity(%Simpleramix.Query{} = query, granularity) do
     %Simpleramix.Query{
-      query | granularity: granularity
+      query
+      | granularity: granularity
     }
   end
 
   def set_dimension(%Simpleramix.Query{} = query, dimension) do
     %Simpleramix.Query{
-      query | dimension: dimension
+      query
+      | dimension: dimension
     }
   end
 
   def set_metric(%Simpleramix.Query{} = query, metric) do
     %Simpleramix.Query{
-      query | metric: metric
+      query
+      | metric: metric
     }
   end
 
   def set_threshold(%Simpleramix.Query{} = query, threshold) do
     %Simpleramix.Query{
-      query | threshold: threshold
+      query
+      | threshold: threshold
     }
   end
 
   def set_merge(%Simpleramix.Query{} = query, merge) do
     %Simpleramix.Query{
-      query | merge: merge
+      query
+      | merge: merge
     }
   end
 
   def set_analysis_types(%Simpleramix.Query{} = query, analysis_types) do
     %Simpleramix.Query{
-      query | analysis_types: analysis_types
+      query
+      | analysis_types: analysis_types
     }
   end
 
   def set_limit_spec(%Simpleramix.Query{} = query, limit_spec) do
     %Simpleramix.Query{
-      query | limit_spec: limit_spec
+      query
+      | limit_spec: limit_spec
     }
   end
 
   def set_limit(%Simpleramix.Query{} = query, limit) do
     %Simpleramix.Query{
-      query | limit: limit
+      query
+      | limit: limit
     }
   end
 
   def set_search_dimensions(%Simpleramix.Query{} = query, search_dimensions) do
     %Simpleramix.Query{
-      query | search_dimensions: search_dimensions
+      query
+      | search_dimensions: search_dimensions
     }
   end
 
   def set_query(%Simpleramix.Query{} = query, query) do
     %Simpleramix.Query{
-      query | query: query
+      query
+      | query: query
     }
   end
 
   def set_sort(%Simpleramix.Query{} = query, sort) do
     %Simpleramix.Query{
-      query | sort: sort
+      query
+      | sort: sort
     }
   end
- 
+
   defmacro set_bound(query, bound) do
     expr = Simpleramix.Query.build_bound(bound)
+
     quote do
       %Simpleramix.Query{
-        unquote(query) |
-        bound: unquote(expr)
+        unquote(query)
+        | bound: unquote(expr)
       }
     end
   end
 
   defmacro set_to_include(query, bound) do
     expr = Simpleramix.Query.build_to_include(bound)
+
     quote do
       %Simpleramix.Query{
-        unquote(query) |
-        to_include: unquote(expr)
+        unquote(query)
+        | to_include: unquote(expr)
       }
     end
   end
