@@ -11,7 +11,7 @@ defmodule QueryTest do
           {Timex.now(), Timex.now()}
         ],
         aggregations: [
-          total_two: longSum(:__count)
+          total_two: longSum(:__count) when dimensions.foo == "123"
         ],
         post_aggregations: [
           triplesum: aggregations.sum * 3
