@@ -12,6 +12,170 @@ defmodule Simpleramix.Query do
   # A query has type Simpleramix.query.t()
   @type t :: %__MODULE__{}
 
+  @doc """
+  Use `from` macro to build Druid queries. See [Druid documentation](http://druid.io/docs/latest/querying/querying.html) to learn about
+  available fields and general query object structure.
+
+  ## Example
+
+    ```elixir
+      iex(1)> use Simpleramix
+      Simpleramix.Query
+      iex(2)> q = from "my_datasource",
+      ...(2)>       query_type: "timeseries",
+      ...(2)>       intervals: ["2019-03-01T00:00:00+00:00/2019-03-04T00:00:00+00:00"],
+      ...(2)>       granularity: :day,
+      ...(2)>       filter: dimensions.foo == "bar",
+      ...(2)>        aggregations: [event_count: count(),
+      ...(2)>                       unique_id_count: hyperUnique(:user_unique)]
+      %Simpleramix.Query{
+      aggregations: [
+        %{name: :event_count, type: "count"},
+        %{fieldName: :user_unique, name: :unique_id_count, type: :hyperUnique}
+      ],
+      analysis_types: nil,
+      bound: nil,
+      context: %{priority: 0, timeout: 120000},
+      data_source: "my_datasource",
+      dimension: nil,
+      dimensions: nil,
+      filter: %{dimension: "foo", type: "selector", value: "bar"},
+      granularity: :day,
+      intervals: ["2019-03-01T00:00:00+00:00/2019-03-04T00:00:00+00:00"],
+      limit: nil,
+      limit_spec: nil,
+      merge: nil,
+      metric: nil,
+      post_aggregations: nil,
+      query: nil,
+      query_type: "timeseries",
+      search_dimensions: nil,
+      sort: nil,
+      threshold: nil,
+      to_include: nil,
+      virtual_columns: nil
+      }
+    ```
+
+  Some HLL aggregation names are capitalized and therefore won't play well with the macro. For such cases
+  use their aliases as a workaround:
+  `hllSketchBuild`, `hllSketchMerge`, `hllSketchEstimate`, `hllSketchUnion`, `hllSketchToString`.
+
+  The aggregation aliases will be replaced with original names when building a query.
+
+  ## Example
+
+    ```elixir
+      iex(1)> use Simpleramix
+      Simpleramix.Query
+      iex(2)> query = from "my_datasource",
+      ...(2)>       query_type: "timeseries",
+      ...(2)>       intervals: ["2018-05-29T00:00:00+00:00/2018-06-05T00:00:00+00:00"],
+      ...(2)>       granularity: :day,
+      ...(2)>       aggregations: [event_count: count(),
+      ...(2)>                     unique_ids: hllSketchMerge(:user_unique, round: true)]
+      %Simpleramix.Query{
+        aggregations: [
+          %{name: :event_count, type: "count"},
+          %{
+            fieldName: :user_unique,
+            name: :unique_ids,
+            round: true,
+            type: "HLLSketchMerge"
+          }
+        ],
+        ...
+      }
+      ```
+
+
+  """
+  @doc since: "1.0.0"
+  defmacro from(source, kw) do
+    # Supply default "context" parameters (timeout, priority) so that
+    # we always have some to work with. If these have already been supplied
+    # in kw then defaults will be overwritten.
+    query_fields = [context: default_context()] ++ List.foldl(kw, [], &build_query/2)
+    quote generated: true, bind_quoted: [source: source, query_fields: query_fields] do
+      query =
+        case source do
+          %Simpleramix.Query{} ->
+            # Are we extending an existing query?
+            source
+          _ ->
+            # Are we creating a new query from scratch, given some kind of datasource?
+            %Simpleramix.Query{data_source: Simpleramix.Query.datasource(source)}
+        end
+      Map.merge(query, Map.new query_fields)
+    end
+  end
+
+  defmacro timeseries(source, kw) do
+    quote do from(unquote(source),unquote(kw)) |> Map.put(:query_type, :timeseries) end
+  end
+
+  defmacro topN(source, kw) do
+    quote do from(unquote(source),unquote(kw)) |> Map.put(:query_type, :topN) end
+  end
+
+  defmacro groupBy(source, kw) do
+    quote do from(unquote(source),unquote(kw)) |> Map.put(:query_type, :groupBy) end
+  end
+
+  defp build_query({field, value}, query_fields)
+  when field in [:granularity, :dimension, :dimensions, :metric, :query_type,
+                 :threshold, :merge, :analysis_types, :limit_spec,
+                 :limit, :search_dimensions, :query, :sort] do
+    # For these fields, we just include the value verbatim.
+    [{field, value}] ++ query_fields
+  end
+
+  defp build_query({:bound, bound}, query_fields) do
+    [bound: build_bound(bound)] ++ query_fields
+  end
+  defp build_query({:intervals, intervals}, query_fields) do
+    [intervals: build_intervals(intervals)] ++ query_fields
+  end
+  defp build_query({:aggregations, aggregations}, query_fields) do
+    [aggregations: build_aggregations(aggregations)] ++ query_fields
+  end
+  defp build_query({:post_aggregations, post_aggregations}, query_fields) do
+    [post_aggregations: build_post_aggregations(post_aggregations)] ++ query_fields
+  end
+  defp build_query({:filter, filter}, query_fields) do
+    [filter: build_filter(filter)] ++ query_fields
+  end
+  defp build_query({:to_include, to_include}, query_fields) do
+    [to_include:
+     quote do
+         case unquote(to_include) do
+           :all ->
+             %{type: :all}
+           :none ->
+             %{type: :none}
+           list when is_list(list) ->
+             %{type: :list, columns: list}
+         end
+     end] ++ query_fields
+  end
+  defp build_query({:virtual_columns, virtual_columns}, query_fields) do
+    [virtual_columns: build_virtual_columns(virtual_columns)] ++ query_fields
+  end
+  defp build_query({:context, context}, query_fields) do
+    [context: build_context(context)] ++ query_fields
+  end
+  defp build_query({unknown, _}, _query_fields) do
+    raise ArgumentError, "Unknown query field #{inspect unknown}"
+  end
+  defp build_aggregations(aggregations) do
+    aggregations |> Enum.map(&build_aggregation(elem(&1,0), elem(&1,1)))
+  end
+  defp build_context(context) do
+    quote generated: true, bind_quoted: [context: context, default_context: default_context()] do
+      Map.merge(default_context, context)
+    end
+  end
+
   @doc nil
   # exported only so that the `from` macro can call it.
   def datasource(datasource) when is_binary(datasource) do
@@ -44,21 +208,22 @@ defmodule Simpleramix.Query do
   end
 
   def default_context() do
-    # Let's add a timeout in the query "context", as we need to
-    # tell Druid to cancel the query if it takes too long.
-    # We're going to close the HTTP connection on our end, so
-    # there is no point in Druid keeping processing.
-    timeout = Application.get_env(:panoramix, :request_timeout, 120_000)
-    # Also set the configured priority.  0 is what Druid picks if you
-    # don't specify a priority, so that seems to be a sensible default.
-    priority = Application.get_env(:panoramix, :query_priority, 0)
-    %{timeout: timeout, priority: priority}
+    quote generated: true do
+      # Let's add a timeout in the query "context", as we need to
+      # tell Druid to cancel the query if it takes too long.
+      # We're going to close the HTTP connection on our end, so
+      # there is no point in Druid keeping processing.
+      timeout = Application.compile_env(:simpleramix, :request_timeout, 120_000)
+      # Also set the configured priority.  0 is what Druid picks if you
+      # don't specify a priority, so that seems to be a sensible default.
+      priority = Application.compile_env(:simpleramix, :query_priority, 0)
+      %{timeout: timeout, priority: priority}
+    end
   end
 
   def build_bound(bound) do
-     quote generated: true, bind_quoted: [bound: bound] do
-       value = String.Chars.to_string bound
-       unless value in ["maxTime", "minTime"] do
+     quote generated: true, bind_quoted: [value: bound] do
+       unless value in [:minTime, :maxTime, "maxTime", "minTime"] do
          raise ArgumentError, "invalid bound value '#{value}', expected 'maxTime' or 'minTime'"
        end
        value
@@ -68,10 +233,10 @@ defmodule Simpleramix.Query do
   def build_to_include(to_include) do
      quote do
          case unquote(to_include) do
-           :all ->
-             %{type: "all"}
-           :none ->
-             %{type: "none"}
+           x when x in [:all, "all"] ->
+             %{type: :all}
+           x when x in [:none, "none"] ->
+             %{type: :none}
            list when is_list(list) ->
              %{type: "list", columns: list}
          end
@@ -82,17 +247,21 @@ defmodule Simpleramix.Query do
   def build_intervals(intervals) do
     # mark as "generated" to avoid warnings about unreachable case
     # clauses when interval is a constant
-    Enum.map intervals, fn
-      interval_string when is_binary(interval_string) ->
-        # Already a string - pass it on unchanged
-        interval_string
-      {from, to} ->
-        Simpleramix.format_time!(from) <> "/" <> Simpleramix.format_time!(to)
+    quote generated: true, bind_quoted: [intervals: intervals] do
+      Enum.map intervals, fn
+        interval_string when is_binary(interval_string) ->
+          # Already a string - pass it on unchanged
+          interval_string
+        [from, to] ->
+          Simpleramix.format_time!(from) <> "/" <> Simpleramix.format_time!(to)
+        {from, to} ->
+          Simpleramix.format_time!(from) <> "/" <> Simpleramix.format_time!(to)
+      end
     end
   end
 
   def build_aggregation(name, {:count, _, []}) do
-    quote do: %{type: "count", name: unquote name}
+    quote do: %{type: :count, name: unquote name}
   end
   def build_aggregation(name, {:when, _, [aggregation, filter]}) do
     # XXX: is it correct to put the name on the "inner" aggregation,
@@ -106,7 +275,7 @@ defmodule Simpleramix.Query do
           # There is no filter - just use the plain aggregator
           aggregator
         _ ->
-          %{type: "filtered",
+          %{type: :filtered,
             filter: filter,
             aggregator: aggregator}
       end
@@ -150,14 +319,25 @@ defmodule Simpleramix.Query do
   defp normalize_aggregation_type_name(:hllSketchToString), do:
     "HLLSketchToString"
   defp normalize_aggregation_type_name(name), do:
-    name
+  name
+
+  defp build_post_aggregations(post_aggregations) do
+    Enum.map post_aggregations,
+    fn {name, post_aggregation} ->
+      pa = build_post_aggregation(post_aggregation)
+      quote do
+        Map.put(unquote(pa), :name, unquote(name))
+      end
+    end
+  end
+
 
   def build_post_aggregation({arith_op, _, [a, b]})
   when arith_op in [:+, :-, :*, :/] do
     pa1 = build_post_aggregation(a)
     pa2 = build_post_aggregation(b)
     quote do
-      %{type: "arithmetic",
+      %{type: :arithmetic,
         fn: unquote(arith_op),
         fields: [unquote(pa1), unquote(pa2)]}
     end
@@ -165,25 +345,25 @@ defmodule Simpleramix.Query do
   def build_post_aggregation({{:., _, [{:aggregations, _, _}, aggregation]}, _, _}) do
     # aggregations.foo
     quote do
-      %{type: "fieldAccess",
+      %{type: :fieldAccess,
         fieldName: unquote(aggregation)}
     end
   end
   def build_post_aggregation({{:., _, [Access, :get]}, _, [{:aggregations, _, _}, aggregation]}) do
     # aggregations["foo"]
     quote do
-      %{type: "fieldAccess",
+      %{type: :fieldAccess,
         fieldName: unquote(aggregation)}
     end
   end
   def build_post_aggregation(constant) when is_number(constant) do
     quote do
-      %{type: "constant",
+      %{type: :constant,
         value: unquote(constant)}
     end
   end
   def build_post_aggregation({:expression, _, [expression]}) do
-    {:%{}, [], [{:type, "expression"}, {:expression, expression}]}
+    {:%{}, [], [{:type, :expression}, {:expression, expression}]}
   end
   def build_post_aggregation({post_aggregator, _, [field | options]})
   when post_aggregator in [:hllSketchToString, :hllSketchEstimateWithBounds, :hllSketchEstimate] do
@@ -216,7 +396,7 @@ defmodule Simpleramix.Query do
   end
   def build_filter({:!= = operator, _, [a, b]}) do
     eq_filter = build_eq_filter(operator, a, b)
-    {:%{}, [], [type: "not", field: eq_filter]}
+    {:%{}, [], [type: :not, field: eq_filter]}
   end
   def build_filter({:and, _, [a, b]}) do
     filter_a = build_filter(a)
@@ -235,19 +415,19 @@ defmodule Simpleramix.Query do
         # If either or both filter is an AND already, merge them together
         {filter_a_unquoted, filter_b_unquoted} ->
           # Need to handle both atom and string keys
-          a_is_and = unquote(atom_or_string_value(quote(do: filter_a_unquoted), :type)) == "and"
-          b_is_and = unquote(atom_or_string_value(quote(do: filter_b_unquoted), :type)) == "and"
+          a_is_and = unquote(atom_or_string_value(quote(do: filter_a_unquoted), :type)) == :and
+          b_is_and = unquote(atom_or_string_value(quote(do: filter_b_unquoted), :type)) == :and
           filter_a_fields = unquote(atom_or_string_value(quote(do: filter_a_unquoted), :fields))
           filter_b_fields = unquote(atom_or_string_value(quote(do: filter_b_unquoted), :fields))
           case {a_is_and, b_is_and} do
             {true, true} ->
-              %{type: "and", fields: filter_a_fields ++ filter_b_fields}
+              %{type: :and, fields: filter_a_fields ++ filter_b_fields}
             {true, false} ->
-              %{type: "and", fields: filter_a_fields ++ [filter_b_unquoted]}
+              %{type: :and, fields: filter_a_fields ++ [filter_b_unquoted]}
             {false, true} ->
-              %{type: "and", fields: [filter_a_unquoted] ++ filter_b_fields}
+              %{type: :and, fields: [filter_a_unquoted] ++ filter_b_fields}
             {false, false} ->
-              %{type: "and", fields: [filter_a_unquoted, filter_b_unquoted]}
+              %{type: :and, fields: [filter_a_unquoted, filter_b_unquoted]}
           end
       end
     end
@@ -291,7 +471,7 @@ defmodule Simpleramix.Query do
       raise "left operand of 'in' must be a dimension"
     end
     {:%{}, [], [
-        type: "interval",
+        type: :interval,
         intervals: build_intervals(intervals)] ++
       # allow extraction function
       Map.to_list(dimension)}
@@ -304,7 +484,7 @@ defmodule Simpleramix.Query do
       raise "left operand of 'in' must be a dimension"
     end
     {:%{}, [], [
-        type: "in",
+        type: :in,
         values: values] ++
       # allow extraction function
       Map.to_list(dimension)}
@@ -324,7 +504,7 @@ defmodule Simpleramix.Query do
     unless dimension do
       raise "middle operand in bound filter must be a dimension"
     end
-    base = {:%{}, [], [type: "bound", lowerStrict: lower_strict, upperStrict: upper_strict] ++
+    base = {:%{}, [], [type: :bound, lowerStrict: lower_strict, upperStrict: upper_strict] ++
       # allow extraction function
       Map.to_list(dimension)}
     # Need 'generated: true' here to avoid compiler warnings for
@@ -337,11 +517,11 @@ defmodule Simpleramix.Query do
       {lower, upper, ordering} =
         case {unquote(a), unquote(c)} do
           {l, u} when is_integer(l) and is_integer(u) ->
-            {Integer.to_string(l), Integer.to_string(u), "numeric"}
+            {Integer.to_string(l), Integer.to_string(u), :numeric}
           {l, u} when is_float(l) and is_float(u) ->
-            {Float.to_string(l), Float.to_string(u), "numeric"}
+            {Float.to_string(l), Float.to_string(u), :numeric}
           {l, u} when is_binary(l) and is_binary(u) ->
-            {l, u, "lexicographic"}
+            {l, u, :lexicographic}
         end
       Map.merge(unquote(base),
         %{lower: lower,
@@ -353,7 +533,7 @@ defmodule Simpleramix.Query do
     # A math expression, as described in http://druid.io/docs/0.12.1/misc/math-expr
     # We're expecting a string that we're passing on to Druid
     quote bind_quoted: [expression: expression] do
-      %{type: "expression",
+      %{type: :expression,
         expression: expression}
     end
   end
@@ -384,7 +564,7 @@ defmodule Simpleramix.Query do
       {_, nil} ->
         # Compare a dimension to a value
         {:%{}, [], [
-            type: "selector",
+            type: :selector,
             value: b] ++
           # dimension_a is either just a dimension, or a dimension
           # plus an extraction function
@@ -393,7 +573,7 @@ defmodule Simpleramix.Query do
         # Compare two dimensions
         dimension_spec_a = to_dimension_spec(dimension_a)
         dimension_spec_b = to_dimension_spec(dimension_b)
-        quote do: %{type: "columnComparison",
+        quote do: %{type: :columnComparison,
                     dimensions: [unquote(dimension_spec_a),
                                  unquote(dimension_spec_b)]}
     end
@@ -417,7 +597,7 @@ defmodule Simpleramix.Query do
   # TODO: handle more extraction functions
   defp dimension_or_extraction_fn({{:., _, [{:dimensions, _, _}, dimension]}, _, _}) do
     # dimensions.foo
-    %{dimension: Atom.to_string(dimension)}
+    %{dimension: dimension}
   end
   defp dimension_or_extraction_fn({{:., _, [Access, :get]}, _, [{:dimensions, _, _}, dimension]}) do
     # dimensions["foo"]
@@ -431,8 +611,8 @@ defmodule Simpleramix.Query do
                  [opts] -> opts
                end
         %{extractionFn: {:%{}, [],
-                         [{"type", "registeredLookup"},
-                          {"lookup", lookup_name}] ++ opts}}
+                         [{:type, :registeredLookup},
+                          {:lookup, lookup_name}] ++ opts}}
       _ ->
         raise ArgumentError, "Expected lookup name as argument to lookup"
     end
@@ -446,8 +626,8 @@ defmodule Simpleramix.Query do
         # - let's combine them into a cascade extraction function.
         %{dimension: dimension,
           extractionFn: {:%{}, [],
-                         [{"type", "cascade"},
-                          {"extractionFns", [left_extraction_fn, right_extraction_fn]}]}}
+                         [{:type, :cascade},
+                          {:extractionFns, [left_extraction_fn, right_extraction_fn]}]}}
       {%{dimension: dimension}, %{extractionFn: extraction_fn}} ->
         %{dimension: dimension, extractionFn: extraction_fn}
     end
@@ -458,7 +638,7 @@ defmodule Simpleramix.Query do
 
   defp to_dimension_spec(%{dimension: dimension, extractionFn: extraction_fn}) do
     # Do we need to set outputName here?
-    {:%{}, [], [type: "extraction",
+    {:%{}, [], [type: :extraction,
                 dimension: dimension,
                 extractionFn: extraction_fn]}
   end
@@ -466,6 +646,11 @@ defmodule Simpleramix.Query do
     dimension
   end
 
+  defp build_virtual_columns(virtual_columns) do
+    virtual_columns |> Enum.map(fn x ->
+      build_virtual_column(elem(x,0), elem(x,1))
+    end)
+  end
 
   def build_virtual_column(name, {:expression, _, [expression, output_type]}) do
     quote generated: true, bind_quoted: [
@@ -477,7 +662,7 @@ defmodule Simpleramix.Query do
       unless output_type in ["LONG", "FLOAT", "DOUBLE", "STRING"] do
         raise ArgumentError, "Unexpected output type #{output_type}, expected one of :long, :float, :double, :string"
       end
-      %{type: "expression",
+      %{type: :expression,
         name: name,
         outputType: output_type,
         expression: expression}

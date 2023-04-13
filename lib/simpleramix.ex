@@ -271,20 +271,9 @@ defmodule Simpleramix do
 
   defmacro __using__(_params) do
     quote do
-      import Simpleramix.Query, only: [from: 2]
+      #import Simpleramix.Query, only: [from: 2, timeseries: 2, groupBy: 2, topN: 2]
+      import Simpleramix.Query, only: [from: 2, timeseries: 2]
     end
-  end
-
-  def top_n do
-    %Simpleramix.Query{query_type: "topN", context: Simpleramix.Query.default_context()}
-  end
-
-  def group_by do
-    %Simpleramix.Query{query_type: "groupBy", context: Simpleramix.Query.default_context()}
-  end
-
-  def timeseries do
-    %Simpleramix.Query{query_type: "timeseries", context: Simpleramix.Query.default_context()}
   end
 
   def datasource(%Simpleramix.Query{} = query, table) do
@@ -331,18 +320,41 @@ defmodule Simpleramix do
     quote do
       %Simpleramix.Query{
         unquote(query) |
-        post_aggregations: [ unquote(agg) |> Map.put(:name, unquote(name)) | unquote(query).aggregations ]
+        post_aggregations: [ unquote(agg) |> Map.put(:name, unquote(name)) | unquote(query).post_aggregations ]
       }
     end
+  end
+
+  def add_dimension(%Simpleramix.Query{} = query, dimension) do
+    %Simpleramix.Query{
+      query |
+      dimensions: [dimension | query.dimensions || []]
+    }
   end
 
   defmacro add_filter(query, expr) do
     expr = Simpleramix.Query.build_filter(expr)
     quote do
-      %Simpleramix.Query{
-        unquote(query) |
-        filter: [unquote(expr) | unquote(query).filter || []]
-      }
+      unquote(query).filter |> case do
+        nil -> %Simpleramix.Query{unquote(query) | filter: unquote(expr)}
+        %{type: op, fields: fields} when op in [:and, "and"] ->
+          %Simpleramix.Query{
+            unquote(query) |
+            filter: %{
+              type: :and,
+              fields: [unquote(expr) | fields]
+            }
+          }
+        existing_filter ->
+          %Simpleramix.Query{
+            unquote(query) |
+            filter: %{
+              type: :and,
+              fields: [unquote(expr), existing_filter]
+            }
+          }
+
+      end
     end
   end
 
