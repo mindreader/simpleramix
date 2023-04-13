@@ -55,14 +55,14 @@ defmodule QueryTest do
       )
       |> Simpleramix.set_bound(:minTime)
       |> Simpleramix.set_to_include(:all)
-      |> Simpleramix.set_subtotals_spec([[:a1],[:a2]])
+      |> Simpleramix.set_subtotals_spec([[:a1], [:a2]])
 
     assert Enum.count(query.aggregations) == 3
     assert Enum.count(query.post_aggregations) == 2
     assert Enum.count(query.virtual_columns) == 2
     assert Enum.count(query.intervals) == 3
     assert query.context.skipEmptyBuckets == true
-    assert query.subtotals_spec == [[:a1],[:a2]]
+    assert query.subtotals_spec == [[:a1], [:a2]]
 
     query = query |> Simpleramix.add_filter(dimensions.foo == "bar")
 
