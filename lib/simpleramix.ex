@@ -510,4 +510,11 @@ defmodule Simpleramix do
       }
     end
   end
+
+  def as_query_type(%Simpleramix.Query{} = query, type) when type in [:groupBy, :timeseries, :topN] do
+    %Simpleramix.Query{
+      query
+      | query_type: type
+    }
+  end
 end
