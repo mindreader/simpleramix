@@ -270,16 +270,21 @@ defmodule Simpleramix.Query do
     datasource
   end
 
+  @timeout Application.compile_env(:simpleramix, :request_timeout, 120_000)
+  @priority Application.compile_env(:simpleramix, :query_priority, 0)
+
   def default_context() do
+    timeout = @timeout
+    priority = @priority
     quote generated: true do
       # Let's add a timeout in the query "context", as we need to
       # tell Druid to cancel the query if it takes too long.
       # We're going to close the HTTP connection on our end, so
       # there is no point in Druid keeping processing.
-      timeout = Application.compile_env(:simpleramix, :request_timeout, 120_000)
+      timeout = unquote(timeout)
       # Also set the configured priority.  0 is what Druid picks if you
       # don't specify a priority, so that seems to be a sensible default.
-      priority = Application.compile_env(:simpleramix, :query_priority, 0)
+      priority = unquote(priority)
       %{timeout: timeout, priority: priority}
     end
   end
