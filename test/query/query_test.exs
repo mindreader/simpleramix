@@ -40,12 +40,18 @@ defmodule QueryTest do
 
     assert query.subtotals_spec == [[:d1], [:d2, :d3]]
 
+    field_name = "asdf"
+
     query =
       query
       |> Simpleramix.set_granularity(:day)
       |> Simpleramix.put_context(:skipEmptyBuckets, true)
       |> Simpleramix.add_interval("2019-03-01T00:00:00+00:00", "2019-03-04T00:00:00+00:00")
       |> Simpleramix.add_interval(DateTime.utc_now(), DateTime.utc_now())
+      |> Simpleramix.add_aggregation(
+        :field_total,
+        longSum(^field_name) when dimensions.foo == "123"
+      )
       |> Simpleramix.add_aggregation(:total, longSum(:__count))
       |> Simpleramix.add_aggregation(:rows, count(:__count))
       |> Simpleramix.add_post_aggregation(:doublesum, aggregations.sum * 2)
@@ -57,7 +63,7 @@ defmodule QueryTest do
       |> Simpleramix.set_to_include(:all)
       |> Simpleramix.set_subtotals_spec([[:a1], [:a2]])
 
-    assert Enum.count(query.aggregations) == 3
+    assert Enum.count(query.aggregations) == 4
     assert Enum.count(query.post_aggregations) == 2
     assert Enum.count(query.virtual_columns) == 2
     assert Enum.count(query.intervals) == 3

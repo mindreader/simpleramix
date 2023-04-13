@@ -355,6 +355,18 @@ defmodule Simpleramix.Query do
     end
   end
 
+  def build_aggregation(name, {aggregation_type, _, [{:^, _, [{var, _, nil}]}]}) do
+    normalized_aggregation_type = normalize_aggregation_type_name(aggregation_type)
+
+    var = Macro.var(var, nil)
+
+    quote do: %{
+            type: unquote(normalized_aggregation_type),
+            name: unquote(name),
+            fieldName: unquote(var)
+          }
+  end
+
   def build_aggregation(name, {aggregation_type, _, [field_name]}) do
     # e.g. hyperUnique(:user_unique)
     normalized_aggregation_type = normalize_aggregation_type_name(aggregation_type)
