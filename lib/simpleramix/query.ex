@@ -713,17 +713,29 @@ defmodule Simpleramix.Query do
 
       {_, nil} ->
         # Compare a dimension to a value
-        {
-          :%{},
-          [],
-          # dimension_a is either just a dimension, or a dimension
-          # plus an extraction function
-          [
-            type: :selector,
-            value: b
-          ] ++
-            Map.to_list(dimension_a)
-        }
+        case b do
+          {:^, _, [{var, _, nil}]} ->
+            var = Macro.var(var, nil)
+            quote do
+            %{
+              type: :selector,
+              value: unquote(var)
+            }
+            |> Map.merge(unquote({:%{}, [], Map.to_list(dimension_a)}))
+            end
+          _ ->
+            {
+              :%{},
+              [],
+              # dimension_a is either just a dimension, or a dimension
+              # plus an extraction function
+              [
+                type: :selector,
+                value: b
+              ] ++
+                Map.to_list(dimension_a)
+            }
+        end
 
       {_, _} ->
         # Compare two dimensions
