@@ -42,6 +42,8 @@ defmodule QueryTest do
 
     field_name = "asdf"
 
+    # ob = %{foo: :bar}
+
     query =
       query
       |> Simpleramix.set_granularity(:day)
@@ -50,8 +52,13 @@ defmodule QueryTest do
       |> Simpleramix.add_interval(DateTime.utc_now(), DateTime.utc_now())
       |> Simpleramix.add_aggregation(
         :field_total,
-        longSum(^field_name) when dimensions.foo == "123"
+        longSum(^field_name) when dimensions.foo == ^field_name
       )
+      # TODO would be nice to suport eg. this
+      # |> Simpleramix.add_aggregation(
+      #   :field_total,
+      #   longSum(^ob.foo) when dimensions.foo == ^ob.foo
+      # )
       |> Simpleramix.add_aggregation(:total, longSum(:__count))
       |> Simpleramix.add_aggregation(:rows, count(:__count))
       |> Simpleramix.add_post_aggregation(:doublesum, aggregations.sum * 2)
