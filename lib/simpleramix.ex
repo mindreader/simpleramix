@@ -175,7 +175,7 @@ defmodule Simpleramix do
   end
 
   defp request_and_decode(profile, method, url_path, body, headers) do
-    broker_profiles = Application.get_env(:panoramix, :broker_profiles)
+    broker_profiles = Application.get_env(:simpleramix, :broker_profiles)
 
     broker_profile =
       broker_profiles[profile] ||
@@ -233,7 +233,7 @@ defmodule Simpleramix do
 
   defp timeout_options() do
     # Default to 120 seconds
-    request_timeout = Application.get_env(:panoramix, :request_timeout, 120_000)
+    request_timeout = Application.get_env(:simpleramix, :request_timeout, 120_000)
     [recv_timeout: request_timeout]
   end
 
