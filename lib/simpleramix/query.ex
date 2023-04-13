@@ -220,6 +220,10 @@ defmodule Simpleramix.Query do
     raise ArgumentError, "Unknown query field #{inspect(unknown)}"
   end
 
+  defp build_aggregations({:^, _, [aggregations]}) do
+    aggregations
+  end
+
   defp build_aggregations(aggregations) do
     aggregations |> Enum.map(&build_aggregation(elem(&1, 0), elem(&1, 1)))
   end
@@ -386,6 +390,10 @@ defmodule Simpleramix.Query do
   defp normalize_aggregation_type_name(:hllSketchUnion), do: "HLLSketchUnion"
   defp normalize_aggregation_type_name(:hllSketchToString), do: "HLLSketchToString"
   defp normalize_aggregation_type_name(name), do: name
+
+  defp build_post_aggregations({:^, _, [post_aggregations]}) do
+    post_aggregations
+  end
 
   defp build_post_aggregations(post_aggregations) do
     Enum.map(
@@ -616,14 +624,13 @@ defmodule Simpleramix.Query do
       raise "middle operand in bound filter must be a dimension"
     end
 
-    base =
-      {
-        :%{},
-        [],
-        # allow extraction function
-        [type: :bound, lowerStrict: lower_strict, upperStrict: upper_strict] ++
-          Map.to_list(dimension)
-      }
+    base = {
+      :%{},
+      [],
+      # allow extraction function
+      [type: :bound, lowerStrict: lower_strict, upperStrict: upper_strict] ++
+        Map.to_list(dimension)
+    }
 
     # Need 'generated: true' here to avoid compiler warnings for
     # our case expression in case a and c are literal constants.
