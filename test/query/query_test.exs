@@ -23,7 +23,8 @@ defmodule QueryTest do
           skipEmptyBuckets: false
         },
         filter: dimensions.foobar == "baz",
-        dimensions: [:foo, :bar]
+        dimensions: [:foo, :bar],
+        subtotals_spec: [[:d1], [:d2, :d3]]
       )
 
     assert query.query_type == :timeseries
@@ -36,6 +37,8 @@ defmodule QueryTest do
     assert query.filter.dimension == :foobar
 
     assert query.dimensions == [:foo, :bar]
+
+    assert query.subtotals_spec == [[:d1], [:d2, :d3]]
 
     query =
       query
@@ -52,17 +55,18 @@ defmodule QueryTest do
       )
       |> Simpleramix.set_bound(:minTime)
       |> Simpleramix.set_to_include(:all)
+      |> Simpleramix.set_subtotals_spec([[:a1],[:a2]])
 
     assert Enum.count(query.aggregations) == 3
     assert Enum.count(query.post_aggregations) == 2
     assert Enum.count(query.virtual_columns) == 2
     assert Enum.count(query.intervals) == 3
     assert query.context.skipEmptyBuckets == true
+    assert query.subtotals_spec == [[:a1],[:a2]]
 
     query = query |> Simpleramix.add_filter(dimensions.foo == "bar")
 
     assert query.filter.type == :and
     assert query.filter.fields |> Enum.count() == 2
-
   end
 end

@@ -383,6 +383,13 @@ defmodule Simpleramix do
     end
   end
 
+  def set_subtotals_spec(%Simpleramix.Query{} = query, subtotals_spec) do
+    %Simpleramix.Query{
+      query
+      | subtotals_spec: subtotals_spec
+    }
+  end
+
   defmacro add_virtual_column(query, name, expr) do
     expr = Simpleramix.Query.build_virtual_column(name, expr)
 

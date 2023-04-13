@@ -13,6 +13,7 @@ defmodule Simpleramix.Query do
             dimensions: nil,
             metric: nil,
             threshold: nil,
+            subtotals_spec: nil,
             context: nil,
             to_include: nil,
             merge: nil,
@@ -69,7 +70,8 @@ defmodule Simpleramix.Query do
       sort: nil,
       threshold: nil,
       to_include: nil,
-      virtual_columns: nil
+      virtual_columns: nil,
+      subtotals_spec: nil
       }
     ```
 
@@ -161,7 +163,8 @@ defmodule Simpleramix.Query do
               :limit,
               :search_dimensions,
               :query,
-              :sort
+              :sort,
+              :subtotals_spec
             ] do
     # For these fields, we just include the value verbatim.
     [{field, value}] ++ query_fields
@@ -853,7 +856,8 @@ defmodule Simpleramix.Query do
       limit: query.limit,
       searchDimensions: query.search_dimensions,
       query: query.query,
-      sort: query.sort
+      sort: query.sort,
+      subtotalsSpec: query.subtotals_spec
     ]
     |> Enum.reject(fn {_, v} -> is_nil(v) end)
     |> Enum.into(%{})
