@@ -1,15 +1,15 @@
-# Panoramix
+# Simpleramix
 
 An open-source client library for sending requests to [Apache Druid][druid] from applications written in Elixir. The project uses [HTTPoison][httpoison] as an HTTP client for sending queries.
 
-This was inspired by Panoramix, and is in fact almost identical except that its functions are composable, allowing for better reuse.
+This was inspired by Simpleramix, and is in fact almost identical except that its functions are composable, allowing for better reuse, and forked simply because it feels unlikely they would accept the number of changes we've made.
 
 [druid]: http://druid.io/
 [httpoison]: https://github.com/edgurgel/httpoison
 
 ## Getting Started
 
-Add Panoramix as a dependency to your project.
+Add Simpleramix as a dependency to your project.
 
 ```elixir
 defp deps do
@@ -21,7 +21,7 @@ end
 
 ## Configuration 
 
-Panoramix requires a Druid Broker profile to be defined in the configuration of your application.
+Simpleramix requires a Druid Broker profile to be defined in the configuration of your application.
 
 ```elixir
 config :simpleramix,
