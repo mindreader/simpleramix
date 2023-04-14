@@ -518,6 +518,9 @@ defmodule Simpleramix do
     }
   end
 
+  @timeout Application.compile_env(:simpleramix, :request_timeout, 120_000)
+  @priority Application.compile_env(:simpleramix, :query_priority, 0)
+
   def default_context() do
     timeout = @timeout
     priority = @priority

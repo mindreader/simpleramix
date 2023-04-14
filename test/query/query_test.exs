@@ -5,7 +5,8 @@ defmodule QueryTest do
     use Simpleramix
 
     query =
-      timeseries("my_datasource",
+      from("my_datasource",
+        query_type: :timeseries,
         granularity: :month,
         intervals: [
           {Timex.now(), Timex.now()}
