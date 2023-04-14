@@ -8,14 +8,14 @@ defmodule Simpleramix.MixProject do
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       description: "Client library for sending requests to Druid.",
-      source_url: "https://github.com/GameAnalytics/simpleramix",
+      source_url: "https://github.com/simplecastapps/simpleramix",
       package: package(),
       deps: deps(),
 
       # Docs
       name: "Simpleramix",
-      source_url: "https://github.com/GameAnalytics/simpleramix",
-      homepage_url: "https://github.com/GameAnalytics/simpleramix",
+      source_url: "https://github.com/simplecastapps/simpleramix",
+      homepage_url: "https://github.com/simplecastapps/simpleramix",
       docs: [
         # The main page in the docs
         main: "Simpleramix",
@@ -29,7 +29,7 @@ defmodule Simpleramix.MixProject do
       files: ["config", "lib", "mix.exs", "README*", "LICENSE*"],
       maintainers: ["Magnus Henoch"],
       licenses: ["Apache-2.0"],
-      links: %{github: "https://github.com/GameAnalytics/simpleramix"}
+      links: %{github: "https://github.com/simplecastapps/simpleramix"}
     ]
   end
 

@@ -131,24 +131,6 @@ defmodule Simpleramix.Query do
     end
   end
 
-  defmacro timeseries(source, kw) do
-    quote do
-      from(unquote(source), unquote(kw)) |> Map.put(:query_type, :timeseries)
-    end
-  end
-
-  defmacro topN(source, kw) do
-    quote do
-      from(unquote(source), unquote(kw)) |> Map.put(:query_type, :topN)
-    end
-  end
-
-  defmacro groupBy(source, kw) do
-    quote do
-      from(unquote(source), unquote(kw)) |> Map.put(:query_type, :groupBy)
-    end
-  end
-
   defp build_query({field, value}, query_fields)
        when field in [
               :granularity,

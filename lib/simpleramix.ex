@@ -286,7 +286,7 @@ defmodule Simpleramix do
   defmacro __using__(_params) do
     quote do
       # import Simpleramix.Query, only: [from: 2, timeseries: 2, groupBy: 2, topN: 2]
-      import Simpleramix.Query, only: [from: 2, timeseries: 2]
+      import Simpleramix.Query, only: [from: 2]
       require Simpleramix
     end
   end
@@ -517,4 +517,21 @@ defmodule Simpleramix do
       | query_type: type
     }
   end
+
+  def default_context() do
+    timeout = @timeout
+    priority = @priority
+    quote generated: true do
+      # Let's add a timeout in the query "context", as we need to
+      # tell Druid to cancel the query if it takes too long.
+      # We're going to close the HTTP connection on our end, so
+      # there is no point in Druid keeping processing.
+      timeout = unquote(timeout)
+      # Also set the configured priority.  0 is what Druid picks if you
+      # don't specify a priority, so that seems to be a sensible default.
+      priority = unquote(priority)
+      %{timeout: timeout, priority: priority}
+    end
+  end
+
 end
