@@ -45,6 +45,7 @@ defmodule QueryTest do
     field_value = "field_value"
 
     # ob = %{foo: :bar}
+    time_zone = "America/New_York"
 
     query =
       query
@@ -68,18 +69,38 @@ defmodule QueryTest do
       # )
       |> Simpleramix.add_aggregation(:total, longSum(:__count))
       |> Simpleramix.add_aggregation(:rows, count(:__count))
+      |> Simpleramix.add_aggregations(
+        rows2: count(:__count) when dimensions.foo == "row2val",
+        rows3: count(:__count)
+      )
       |> Simpleramix.add_post_aggregation(:doublesum, aggregations.sum * 2)
+      |> Simpleramix.add_post_aggregations(
+        triplesum: aggregations.sum * 3,
+        quadsum: aggregations.sum * 4
+      )
       |> Simpleramix.add_virtual_column(
         :foo,
         expression("json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))", :string)
       )
+
+      |> Simpleramix.add_virtual_columns(
+        foo2: expression("json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))", :string),
+        foo3: expression("json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))", :string),
+      )
+      |> Simpleramix.add_virtual_columns(
+        dow_mon: expression("timestamp_extract(__time,'DOW','#{time_zone}')", :long),
+        dow: expression("case_simple(dow_mon == 7,0,dow_mon)", :long),
+        hour: expression("timestamp_extract(__time,'HOUR','#{time_zone}')", :long),
+        hour_of_week: expression("dow * 24 + hour", :long)
+      )
+
       |> Simpleramix.set_bound(:minTime)
       |> Simpleramix.set_to_include(:all)
       |> Simpleramix.set_subtotals_spec([[:a1], [:a2]])
 
-    assert Enum.count(query.aggregations) == 5
-    assert Enum.count(query.post_aggregations) == 2
-    assert Enum.count(query.virtual_columns) == 2
+    assert Enum.count(query.aggregations) == 7
+    assert Enum.count(query.post_aggregations) == 4
+    assert Enum.count(query.virtual_columns) == 8
     assert Enum.count(query.intervals) == 3
     assert query.context.skipEmptyBuckets == true
     assert query.subtotals_spec == [[:a1], [:a2]]
