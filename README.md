@@ -2,7 +2,7 @@
 
 An open-source client library for sending requests to [Apache Druid][druid] from applications written in Elixir. The project uses [HTTPoison][httpoison] as an HTTP client for sending queries.
 
-This was inspired by Simpleramix, and is in fact almost identical except that its functions are composable, allowing for better reuse, and forked simply because it feels unlikely they would accept the number of changes we've made.
+This was inspired by Panoramix https://github.com/GameAnalytics/panoramix, and is in fact almost identical except that its functions are composable, allowing for better reuse, and forked simply because it feels unlikely they would accept the large number of changes we've made.
 
 [druid]: http://druid.io/
 [httpoison]: https://github.com/edgurgel/httpoison
