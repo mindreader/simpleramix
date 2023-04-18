@@ -323,6 +323,21 @@ defmodule Simpleramix do
     }
   end
 
+  defmacro add_aggregations(query, aggs) do
+    aggs = aggs |> Enum.map(fn {name, expr} ->
+      Simpleramix.Query.build_aggregation(name, expr)
+    end)
+
+    quote do
+      query = unquote(query)
+
+      %Simpleramix.Query{
+        query
+        | aggregations: [unquote_splicing(aggs)] ++ (query.aggregations || [])
+      }
+    end
+  end
+
   defmacro add_aggregation(query, name, expr) do
     agg = Simpleramix.Query.build_aggregation(name, expr)
 
@@ -334,6 +349,22 @@ defmodule Simpleramix do
         | aggregations: [unquote(agg) | query.aggregations || []]
       }
     end
+  end
+
+  defmacro add_post_aggregations(query, aggs) do
+    aggs = aggs |> Enum.map(fn {name, expr} ->
+      {name, Simpleramix.Query.build_post_aggregation(expr)}
+    end)
+
+    quote do
+      query = unquote(query)
+
+      %Simpleramix.Query{
+        query
+        | post_aggregations: ([unquote_splicing(aggs)] |> Enum.map(fn {n,agg} -> agg |> Map.put(:name, n) end)) ++ (query.post_aggregations || [])
+      }
+    end
+
   end
 
   defmacro add_post_aggregation(query, name, expr) do
@@ -395,6 +426,21 @@ defmodule Simpleramix do
       query
       | subtotals_spec: subtotals_spec
     }
+  end
+
+  defmacro add_virtual_columns(query, columns) do
+    columns = columns |> Enum.map(fn {name, expr} ->
+      {name, Simpleramix.Query.build_virtual_column(name, expr)}
+    end)
+
+    quote do
+      query = unquote(query)
+      %Simpleramix.Query{
+        query
+        | virtual_columns: ([unquote_splicing(columns)] |> Enum.map(fn {n,col} -> col |> Map.put(:name, n) end)) ++ (query.virtual_columns || [])
+      }
+
+    end
   end
 
   defmacro add_virtual_column(query, name, expr) do
