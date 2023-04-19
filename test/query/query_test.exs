@@ -119,8 +119,6 @@ defmodule QueryTest do
     assert query.subtotals_spec == [[:a1], [:a2]]
 
     geotest = 1
-    geotest2 = %{key: :val}
-
 
     some_ids = [1,2,3]
 
