@@ -41,11 +41,15 @@ defmodule QueryTest do
 
     assert query.subtotals_spec == [[:d1], [:d2, :d3]]
 
-    field_name = "field_name"
-    field_value = "field_value"
+    field_name = "field_name's actual name"
+    field_value = "field_value's actual value"
+    ob_value = %{key: "ob_value's actual value"}
 
-    # ob = %{foo: :bar}
     time_zone = "America/New_York"
+
+    ob = %{foo: :obs_value}
+
+    foobar = fn x -> x * 2 end
 
     query =
       query
@@ -55,18 +59,22 @@ defmodule QueryTest do
       |> Simpleramix.add_interval(DateTime.utc_now(), DateTime.utc_now())
       |> Simpleramix.add_aggregation(
         :field_total,
-        longSum(^field_name) when dimensions.foo == ^field_value
+        longSum(^field_name) when dimensions.foo == field_value
       )
       |> Simpleramix.add_aggregation(
         :field_total_2,
-        longSum(:__count) when dimensions.foo == ^field_value
+        longSum(:__count) when dimensions.foo == ob_value.key
+      )
+      |> Simpleramix.add_aggregation(
+        :field_total_3,
+        longSum(:__count) when dimensions.foo == foobar.(2)
       )
 
       # TODO would be nice to suport eg. this
-      # |> Simpleramix.add_aggregation(
-      #   :field_total,
-      #   longSum(^ob.foo) when dimensions.foo == ^ob.foo
-      # )
+      |> Simpleramix.add_aggregation(
+        :field_total,
+        longSum(ob.foo) when dimensions.foo == ob.foo
+      )
       |> Simpleramix.add_aggregation(:total, longSum(:__count))
       |> Simpleramix.add_aggregation(:rows, count(:__count))
       |> Simpleramix.add_aggregations(
@@ -82,10 +90,16 @@ defmodule QueryTest do
         :foo,
         expression("json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))", :string)
       )
-
-      |> Simpleramix.add_virtual_columns(
-        foo2: expression("json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))", :string),
-        foo3: expression("json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))", :string),
+      |> Simpleramix.add_virtual_columns( foo2:
+          expression(
+            "json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))",
+            :string
+          ),
+        foo3:
+          expression(
+            "json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))",
+            :string
+          )
       )
       |> Simpleramix.add_virtual_columns(
         dow_mon: expression("timestamp_extract(__time,'DOW','#{time_zone}')", :long),
@@ -93,21 +107,26 @@ defmodule QueryTest do
         hour: expression("timestamp_extract(__time,'HOUR','#{time_zone}')", :long),
         hour_of_week: expression("dow * 24 + hour", :long)
       )
-
       |> Simpleramix.set_bound(:minTime)
       |> Simpleramix.set_to_include(:all)
       |> Simpleramix.set_subtotals_spec([[:a1], [:a2]])
 
-    assert Enum.count(query.aggregations) == 7
+    assert Enum.count(query.aggregations) == 9
     assert Enum.count(query.post_aggregations) == 4
     assert Enum.count(query.virtual_columns) == 8
     assert Enum.count(query.intervals) == 3
     assert query.context.skipEmptyBuckets == true
     assert query.subtotals_spec == [[:a1], [:a2]]
 
-    query = query |> Simpleramix.add_filter(dimensions.foo == "bar")
+    geotest = 1
+    geotest2 = %{key: :val}
+
+    query =
+      query
+      |> Simpleramix.add_filter(dimensions.foo == "bar")
+      |> Simpleramix.add_filter(geotest <= dimensions.foobar < 2)
 
     assert query.filter.type == :and
-    assert query.filter.fields |> Enum.count() == 2
+    assert query.filter.fields |> Enum.count() == 3
   end
 end
