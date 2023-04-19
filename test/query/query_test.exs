@@ -121,12 +121,21 @@ defmodule QueryTest do
     geotest = 1
     geotest2 = %{key: :val}
 
+
+    some_ids = [1,2,3]
+
+    mindate = DateTime.utc_now()
+    maxdate = DateTime.utc_now()
+
     query =
       query
       |> Simpleramix.add_filter(dimensions.foo == "bar")
       |> Simpleramix.add_filter(geotest <= dimensions.foobar < 2)
+      |> Simpleramix.add_filter(dimensions.foo in some_ids)
+      |> Simpleramix.add_filter(dimensions.foo not in some_ids)
+      |> Simpleramix.add_filter(mindate <= dimensions.__time < maxdate)
 
     assert query.filter.type == :and
-    assert query.filter.fields |> Enum.count() == 3
+    assert query.filter.fields |> Enum.count() == 6
   end
 end
