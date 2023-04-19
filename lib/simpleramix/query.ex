@@ -647,7 +647,8 @@ defmodule Simpleramix.Query do
             {Float.to_string(l), Float.to_string(u), :numeric}
 
           {%DateTime{} = l, %DateTime{} = u} ->
-            {DateTime.to_unix(l), DateTime.to_unix(u), :numeric}
+            # java unix timestamp goes down to the millisecond.
+            {DateTime.to_unix(l) * 1000 + div(elem(l.microsecond,0),1000), DateTime.to_unix(u) * 1000 + div(elem(u.microsecond,0),1000), :numeric}
 
           {l, u} when is_binary(l) and is_binary(u) ->
             {l, u, :lexicographic}
