@@ -132,8 +132,12 @@ defmodule QueryTest do
       |> Simpleramix.add_filter(dimensions.foo in some_ids)
       |> Simpleramix.add_filter(dimensions.foo not in some_ids)
       |> Simpleramix.add_filter(mindate <= dimensions.__time < maxdate)
+      |> Simpleramix.add_filter(dimensions.nullfield != nil)
+      |> Simpleramix.add_filter(dimensions.nullfield == nil)
+      |> Simpleramix.add_filter(dimensions.nullfield != null)
+      |> Simpleramix.add_filter(dimensions.sometimesnullfield == null)
 
     assert query.filter.type == :and
-    assert query.filter.fields |> Enum.count() == 6
+    assert query.filter.fields |> Enum.count() == 10
   end
 end

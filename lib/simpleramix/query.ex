@@ -700,6 +700,12 @@ defmodule Simpleramix.Query do
       {_, nil} ->
         # Compare a dimension to a value
         dimension_a = {:%{}, [], dimension_a |> Enum.to_list()}
+
+        b = case b do
+          {:null, _, nil} -> nil
+          _ -> b
+        end
+
         quote do
           %{
             type: :selector,
