@@ -376,17 +376,10 @@ defmodule Simpleramix do
       %Simpleramix.Query{
         query
         | post_aggregations: [
-            unquote(agg) |> Map.put(:name, unquote(name)) | query.post_aggregations
+            unquote(agg) |> Map.put(:name, unquote(name)) | (query.post_aggregations || [])
           ]
       }
     end
-  end
-
-  def add_dimension(%Simpleramix.Query{} = query, dimension) do
-    %Simpleramix.Query{
-      query
-      | dimensions: [dimension | query.dimensions || []]
-    }
   end
 
   defmacro add_filter(query, expr) do
@@ -464,6 +457,17 @@ defmodule Simpleramix do
       | granularity: granularity
     }
   end
+
+  # note that topN queries have a dimension field, whereas groupby has a
+  # dimensions field (plural). This adds to a groupBy query dimensions,
+  # whereas set_dimension simply sets the topN singular dimension.
+  def add_dimension(%Simpleramix.Query{} = query, dimension) do
+    %Simpleramix.Query{
+      query
+      | dimensions: [dimension | query.dimensions || []]
+    }
+  end
+
 
   def set_dimension(%Simpleramix.Query{} = query, dimension) do
     %Simpleramix.Query{
