@@ -794,7 +794,7 @@ defmodule Simpleramix.Query do
     end
   end
 
-  defp dimension_or_extraction_fn(x) do
+  defp dimension_or_extraction_fn(_) do
     nil
   end
 
