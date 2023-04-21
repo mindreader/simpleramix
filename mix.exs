@@ -4,7 +4,7 @@ defmodule Simpleramix.MixProject do
   def project do
     [
       app: :simpleramix,
-      version: "1.5.1",
+      version: "1.5.2",
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
       description: "Client library for sending requests to Druid.",

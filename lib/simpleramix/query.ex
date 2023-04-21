@@ -689,6 +689,45 @@ defmodule Simpleramix.Query do
     end
   end
 
+  def build_filter({op, _, [a,b]}) when op in [:<, :<=, :>, :>=] do
+    dimension = dimension_or_extraction_fn(a)
+
+    field = if op in [:<, :<=] do :upper else :lower end
+    strict = if op in [:<, :>] do true else false end
+    strict_field = :"#{field}Strict"
+
+    unless dimension do
+      raise "left operand in bound filter must be a dimension"
+    end
+
+    # Need 'generated: true' here to avoid compiler warnings for
+    # our case expression in case a and c are literal constants.
+    quote generated: true do
+      {val, ordering} =
+        case unquote(b) do
+          a when is_integer(a) ->
+          {Integer.to_string(a), :numeric}
+
+          a when is_float(a) ->
+          {Float.to_string(a), :numeric}
+
+          %DateTime{} = a ->
+            # java unix timestamp goes down to the millisecond.
+            {DateTime.to_unix(a) * 1000 + div(elem(a.microsecond,0),1000), :numeric}
+
+          a when is_binary(a) ->
+            {a, :lexicographic}
+        end
+
+      Map.merge(
+        unquote({:%{},[], Map.to_list(dimension)}),
+
+        %{:type => :bound, unquote(field) => val, unquote(strict_field) => unquote(strict), :ordering => ordering}
+      )
+    end
+  end
+
+
   defp build_eq_filter(operator, a, b) do
     dimension_a = dimension_or_extraction_fn(a)
     dimension_b = dimension_or_extraction_fn(b)

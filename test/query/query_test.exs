@@ -125,19 +125,31 @@ defmodule QueryTest do
     mindate = DateTime.utc_now()
     maxdate = DateTime.utc_now()
 
+    dt = Timex.now()
+
     query =
       query
       |> Simpleramix.add_filter(dimensions.foo == "bar")
-      |> Simpleramix.add_filter(geotest <= dimensions.foobar < 2)
       |> Simpleramix.add_filter(dimensions.foo in some_ids)
       |> Simpleramix.add_filter(dimensions.foo not in some_ids)
-      |> Simpleramix.add_filter(mindate <= dimensions.__time < maxdate)
       |> Simpleramix.add_filter(dimensions.nullfield != nil)
       |> Simpleramix.add_filter(dimensions.nullfield == nil)
       |> Simpleramix.add_filter(dimensions.nullfield != null)
       |> Simpleramix.add_filter(dimensions.sometimesnullfield == null)
 
+      # you should strongly prefer setting intervals to setting these, when
+      # involving your time column, because I don't think druid is smart
+      # enough to notice it can use this to avoid scanning all segments.
+      #
+      # That said, it is useful for querying longs and very niche time filtering.
+      |> Simpleramix.add_filter(mindate <= dimensions.__time < maxdate)
+      |> Simpleramix.add_filter(1 <= dimensions.__time < 2)
+      |> Simpleramix.add_filter(dimensions.__time > dt)
+      |> Simpleramix.add_filter(dimensions.strfield >= "B")
+      |> Simpleramix.add_filter(geotest <= dimensions.foobar < 2)
+
+
     assert query.filter.type == :and
-    assert query.filter.fields |> Enum.count() == 10
+    assert query.filter.fields |> Enum.count() == 13
   end
 end
