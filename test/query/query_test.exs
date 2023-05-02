@@ -4,6 +4,8 @@ defmodule QueryTest do
   describe "sort/3 with :desc sorts nils last" do
     use Simpleramix
 
+    filtervar = "foobar"
+
     query =
       from("my_datasource",
         query_type: :timeseries,
@@ -23,7 +25,7 @@ defmodule QueryTest do
         context: %{
           skipEmptyBuckets: false
         },
-        filter: dimensions.foobar == "baz",
+        filter: dimensions.foobar == "baz" and dimensions.baz == filtervar,
         dimensions: [:foo, :bar],
         subtotals_spec: [[:d1], [:d2, :d3]]
       )
@@ -35,7 +37,11 @@ defmodule QueryTest do
     assert Enum.count(query.virtual_columns) == 1
     assert Enum.count(query.intervals) == 1
     assert query.context.skipEmptyBuckets == false
-    assert query.filter.dimension == :foobar
+    assert query.filter.type == :and
+    assert query.filter.fields |> hd |> Map.get(:dimension) == :foobar
+    assert query.filter.fields |> hd |> Map.get(:value) == "baz"
+    assert query.filter.fields |> tl |> hd |> Map.get(:dimension) == :baz
+    assert query.filter.fields |> tl |> hd |> Map.get(:value) == "foobar"
 
     assert query.dimensions == [:foo, :bar]
 
@@ -150,6 +156,6 @@ defmodule QueryTest do
 
 
     assert query.filter.type == :and
-    assert query.filter.fields |> Enum.count() == 13
+    assert query.filter.fields |> Enum.count() == 14
   end
 end
