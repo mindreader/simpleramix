@@ -88,6 +88,54 @@ defmodule QueryTest do
         rows3: count(:__count)
       )
       |> Simpleramix.add_post_aggregation(:doublesum, aggregations.sum * 2)
+      |> Simpleramix.add_post_aggregation(
+        :post1,
+        hllSketchUnion([aggregations.foo1_without_name, aggregations.bar1_without_name],
+          option1: :bar
+        )
+      )
+      |> Simpleramix.add_post_aggregation(
+        :post2,
+        hllSketchUnion([aggregations["foo2_without_name"], aggregations["bar2_without_name"]],
+          option2: :bar
+        )
+      )
+      |> Simpleramix.add_post_aggregation(
+        :post3,
+        hllSketchUnion([aggregations[:foo3_without_name], aggregations[:bar3_without_name]],
+          option3: :bar
+        )
+      )
+      |> Simpleramix.add_post_aggregation(
+        :post4,
+        hllSketchUnion([foo4: aggregations.foo4_with_name, bar4: aggregations.bar4_with_name],
+          option4: :bar
+        )
+      )
+      |> Simpleramix.add_post_aggregation(
+        :post4,
+        hllSketchUnion([foo5: aggregations[:foo5_with_name], bar5: aggregations[:bar5_with_name]],
+          option5: :bar
+        )
+      )
+      |> Simpleramix.add_post_aggregation(
+        :post4,
+        thetaSketchIntersect(
+          foo6: aggregations.foo6_with_name,
+          bar6: field_name,
+          bar6: ob.foo
+        )
+      )
+      |> Simpleramix.add_post_aggregation(
+        :post_inter,
+        thetaSketchUnion(
+          [
+            p0: aggregations.a3,
+            p1: aggregations.a4
+          ],
+          size: 16384
+        )
+      )
       |> Simpleramix.add_post_aggregations(
         triplesum: aggregations.sum * 3,
         quadsum: aggregations.sum * 4
