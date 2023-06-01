@@ -703,7 +703,8 @@ defmodule Simpleramix.Query do
 
           {%DateTime{} = l, %DateTime{} = u} ->
             # java unix timestamp goes down to the millisecond.
-            {DateTime.to_unix(l) * 1000 + div(elem(l.microsecond,0),1000), DateTime.to_unix(u) * 1000 + div(elem(u.microsecond,0),1000), :numeric}
+            {DateTime.to_unix(l) * 1000 + div(elem(l.microsecond, 0), 1000),
+             DateTime.to_unix(u) * 1000 + div(elem(u.microsecond, 0), 1000), :numeric}
 
           {l, u} when is_binary(l) and is_binary(u) ->
             {l, u, :lexicographic}
@@ -744,11 +745,23 @@ defmodule Simpleramix.Query do
     end
   end
 
-  def build_filter({op, _, [a,b]}) when op in [:<, :<=, :>, :>=] do
+  def build_filter({op, _, [a, b]}) when op in [:<, :<=, :>, :>=] do
     dimension = dimension_or_extraction_fn(a)
 
-    field = if op in [:<, :<=] do :upper else :lower end
-    strict = if op in [:<, :>] do true else false end
+    field =
+      if op in [:<, :<=] do
+        :upper
+      else
+        :lower
+      end
+
+    strict =
+      if op in [:<, :>] do
+        true
+      else
+        false
+      end
+
     strict_field = :"#{field}Strict"
 
     unless dimension do
@@ -761,27 +774,30 @@ defmodule Simpleramix.Query do
       {val, ordering} =
         case unquote(b) do
           a when is_integer(a) ->
-          {Integer.to_string(a), :numeric}
+            {Integer.to_string(a), :numeric}
 
           a when is_float(a) ->
-          {Float.to_string(a), :numeric}
+            {Float.to_string(a), :numeric}
 
           %DateTime{} = a ->
             # java unix timestamp goes down to the millisecond.
-            {DateTime.to_unix(a) * 1000 + div(elem(a.microsecond,0),1000), :numeric}
+            {DateTime.to_unix(a) * 1000 + div(elem(a.microsecond, 0), 1000), :numeric}
 
           a when is_binary(a) ->
             {a, :lexicographic}
         end
 
       Map.merge(
-        unquote({:%{},[], Map.to_list(dimension)}),
-
-        %{:type => :bound, unquote(field) => val, unquote(strict_field) => unquote(strict), :ordering => ordering}
+        unquote({:%{}, [], Map.to_list(dimension)}),
+        %{
+          :type => :bound,
+          unquote(field) => val,
+          unquote(strict_field) => unquote(strict),
+          :ordering => ordering
+        }
       )
     end
   end
-
 
   defp build_eq_filter(operator, a, b) do
     dimension_a = dimension_or_extraction_fn(a)
@@ -795,16 +811,18 @@ defmodule Simpleramix.Query do
         # Compare a dimension to a value
         dimension_a = {:%{}, [], dimension_a |> Enum.to_list()}
 
-        b = case b do
-          {:null, _, nil} -> nil
-          _ -> b
-        end
+        b =
+          case b do
+            {:null, _, nil} -> nil
+            _ -> b
+          end
 
         quote do
           %{
             type: :selector,
             value: unquote(b)
-          } |> Map.merge(unquote(dimension_a))
+          }
+          |> Map.merge(unquote(dimension_a))
         end
 
       {_, _} ->
