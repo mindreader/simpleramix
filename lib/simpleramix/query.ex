@@ -258,6 +258,7 @@ defmodule Simpleramix.Query do
   def default_context() do
     timeout = @timeout
     priority = @priority
+
     quote generated: true do
       # Let's add a timeout in the query "context", as we need to
       # tell Druid to cancel the query if it takes too long.
@@ -417,6 +418,24 @@ defmodule Simpleramix.Query do
     end
   end
 
+  def build_post_aggregation(
+        {field_name, {{:., _, [{:aggregations, _, _}, aggregation]}, _, _}}
+      ) do
+    # [named_field: aggregations.foo]
+    quote do
+      %{type: :fieldAccess, fieldName: unquote(aggregation), name: unquote(field_name)}
+    end
+  end
+
+  def build_post_aggregation(
+        {field_name, {{:., _, [Access, :get]}, _, [{:aggregations, _, _}, aggregation]}}
+      ) do
+    # [named_field: aggregations["foo"]]
+    build_post_aggregation(
+      {field_name, {{:., nil, [{:aggregations, nil, nil}, aggregation]}, nil, nil}}
+    )
+  end
+
   def build_post_aggregation({{:., _, [{:aggregations, _, _}, aggregation]}, _, _}) do
     # aggregations.foo
     quote do
@@ -451,7 +470,31 @@ defmodule Simpleramix.Query do
     post_aggregation_field_accessor(post_aggregator, :field, field_ref, options)
   end
 
-  def build_post_aggregation({:hllSketchUnion, _, [fields | options]}) do
+  def build_post_aggregation({op, _, [fields | options]} = x)
+      when op in [:thetaSketchIntersect, :thetaSketchUnion, :thetaSketchNot] do
+    pa_list =
+      for field <- fields do
+        build_post_aggregation(field)
+      end
+
+    func =
+      case op do
+        :thetaSketchIntersect -> :INTERSECT
+        :thetaSketchUnion -> :UNION
+        :thetaSketchNot -> :NOT
+      end
+
+    op_options =
+      case options do
+        [] -> [[func: func]]
+        [options] -> [options |> Keyword.put(:func, func)]
+      end
+
+    field_ref = post_aggregation_field_accessor(:thetaSketchSetOp, :fields, pa_list, op_options)
+    post_aggregation_field_accessor(:thetaSketchEstimate, :field, field_ref, [])
+  end
+
+  def build_post_aggregation({:hllSketchUnion, _, [fields | options]} = x) do
     pa_list = for field <- fields, do: build_post_aggregation(field)
     post_aggregation_field_accessor(:hllSketchUnion, :fields, pa_list, options)
   end
@@ -466,6 +509,18 @@ defmodule Simpleramix.Query do
     # This is for all post-aggregators that use a "fieldName" parameter,
     # and optionally a bunch of extra parameters.
     post_aggregation_field_accessor(post_aggregator, :fieldName, field_name, options)
+  end
+
+  def build_post_aggregation({name, var}) do
+    quote do
+      %{type: :fieldAccess, fieldName: unquote(var), name: unquote(name)}
+    end
+  end
+
+  def build_post_aggregation(var) do
+    quote do
+      %{type: :fieldAccess, fieldName: unquote(var)}
+    end
   end
 
   def post_aggregation_field_accessor(type_name, accessor_name, accessor, options \\ []) do
