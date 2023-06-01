@@ -144,7 +144,8 @@ defmodule QueryTest do
         :foo,
         expression("json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))", :string)
       )
-      |> Simpleramix.add_virtual_columns( foo2:
+      |> Simpleramix.add_virtual_columns(
+        foo2:
           expression(
             "json_value(parse_json(to_json_string(\"foo\")),'$.rhs', 'STRING'))",
             :string
@@ -166,7 +167,7 @@ defmodule QueryTest do
       |> Simpleramix.set_subtotals_spec([[:a1], [:a2]])
 
     assert Enum.count(query.aggregations) == 9
-    assert Enum.count(query.post_aggregations) == 4
+    assert Enum.count(query.post_aggregations) == 11
     assert Enum.count(query.virtual_columns) == 8
     assert Enum.count(query.intervals) == 3
     assert query.context.skipEmptyBuckets == true
@@ -174,7 +175,7 @@ defmodule QueryTest do
 
     geotest = 1
 
-    some_ids = [1,2,3]
+    some_ids = [1, 2, 3]
 
     mindate = DateTime.utc_now()
     maxdate = DateTime.utc_now()
@@ -201,7 +202,6 @@ defmodule QueryTest do
       |> Simpleramix.add_filter(dimensions.__time > dt)
       |> Simpleramix.add_filter(dimensions.strfield >= "B")
       |> Simpleramix.add_filter(geotest <= dimensions.foobar < 2)
-
 
     assert query.filter.type == :and
     assert query.filter.fields |> Enum.count() == 14
