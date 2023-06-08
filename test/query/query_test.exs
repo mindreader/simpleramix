@@ -127,6 +127,14 @@ defmodule QueryTest do
         )
       )
       |> Simpleramix.add_post_aggregation(
+        :pos5,
+        thetaSketchIntersect([
+          aggregations.foo6_with_name,
+          field_name,
+          ob.foo
+        ])
+      )
+      |> Simpleramix.add_post_aggregation(
         :post_inter,
         thetaSketchUnion(
           [
@@ -167,7 +175,7 @@ defmodule QueryTest do
       |> Simpleramix.set_subtotals_spec([[:a1], [:a2]])
 
     assert Enum.count(query.aggregations) == 9
-    assert Enum.count(query.post_aggregations) == 11
+    assert Enum.count(query.post_aggregations) == 12
     assert Enum.count(query.virtual_columns) == 8
     assert Enum.count(query.intervals) == 3
     assert query.context.skipEmptyBuckets == true
